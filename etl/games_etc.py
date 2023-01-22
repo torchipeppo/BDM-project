@@ -64,25 +64,6 @@ CAT_children = {
 
 CAT_LIST = [CAT_thematic,CAT_strategy,CAT_war,CAT_family,CAT_cards,CAT_abstract,CAT_party,CAT_children]
 
-# CAT_CSV_CONV = {
-#     "Cat:Thematic": CAT_thematic,
-#     "Rank:thematic": CAT_thematic,
-#     "Cat:Strategy": CAT_strategy,
-#     "Rank:strategygames": CAT_strategy,
-#     "Cat:War": CAT_war,
-#     "Rank:wargames": CAT_war,
-#     "Cat:Family": CAT_family,
-#     "Rank:familygames": CAT_family,
-#     "Cat:CGS": CAT_cards,
-#     "Rank:cgs": CAT_cards,
-#     "Cat:Abstract": CAT_abstract,
-#     "Rank:abstracts": CAT_abstract,
-#     "Cat:Party": CAT_party,
-#     "Rank:partygames": CAT_party,
-#     "Cat:Childrens": CAT_children,
-#     "Rank:childrensgames": CAT_children,
-# }
-
 def go(db):
 
     # TODO vogliamo grafare pure l'anno di pubblicazione?
@@ -124,7 +105,8 @@ def go(db):
             # desc is too tokenized to be useful
             # game_dict["description"]  = row_dict["Description"]
             game_dict["year"]         = int(row_dict["YearPublished"])
-            game_dict["weight"]       = float(row_dict["GameWeight"])
+            if float(row_dict["GameWeight"]) > 0:
+                game_dict["weight"]       = float(row_dict["GameWeight"])
             game_dict["rating_avg"]          = float(row_dict["AvgRating"])
             game_dict["rating_bayes_avg"]    = float(row_dict["BayesAvgRating"])
             game_dict["rating_bayes_stddev"] = float(row_dict["StdDev"])
@@ -137,7 +119,8 @@ def go(db):
                 game_dict["age_com"]        = float(row_dict["ComAgeRec"])
             if row_dict["LanguageEase"]:
                 game_dict["language_ease"]  = float(row_dict["LanguageEase"])
-            game_dict["players_com_best"]   = int(row_dict["BestPlayers"])
+            if int(row_dict["BestPlayers"]) > 0:
+                game_dict["players_com_best"] = int(row_dict["BestPlayers"])
             # want a list of ints here, and it turns out
             # that I have the STRING representation of a list
             # there are apices inside, but w/e, I want numbers anyway
@@ -146,7 +129,9 @@ def go(db):
             # except there's a special value that wants to be a string
             # example: 6+ -> "More"
             good_players_str = re.sub(r"(\d+[+])", '"More"', good_players_str)
-            game_dict["players_com_good"] = json.loads(good_players_str)
+            good_players_list = json.loads(good_players_str)
+            if len(good_players_list) > 0:
+                game_dict["players_com_good"] = good_players_list
             game_dict["num_owned"]         = int(row_dict["NumOwned"])
             game_dict["num_want"]          = int(row_dict["NumWant"])
             game_dict["num_wish"]          = int(row_dict["NumWish"])
@@ -156,7 +141,8 @@ def go(db):
                 "min": int(row_dict["ComMinPlaytime"]),
                 "max": int(row_dict["ComMaxPlaytime"]),
             }
-            game_dict["age_mfg"] = int(row_dict["MfgAgeRec"])
+            if int(row_dict["MfgAgeRec"]) > 0:
+                game_dict["age_mfg"] = int(row_dict["MfgAgeRec"])
             game_dict["num_user_ratings"] = int(row_dict["NumUserRatings"])
             game_dict["num_comments"] = int(row_dict["NumComments"])
             game_dict["num_alternates"] = int(row_dict["NumAlternates"])
