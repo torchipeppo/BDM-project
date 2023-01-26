@@ -65,6 +65,7 @@ CAT_children = {
 CAT_LIST = [CAT_thematic,CAT_strategy,CAT_war,CAT_family,CAT_cards,CAT_abstract,CAT_party,CAT_children]
 
 def go(db):
+    print("games-etc in progress")
 
     # TODO vogliamo grafare pure l'anno di pubblicazione?
     #      per adesso boh, ma dipende anche da che query vogliamo fare...
@@ -168,7 +169,7 @@ def go(db):
                     in_category_coll.insert({
                         "_from": game_id,
                         "_to": categories_coll.name + "/" + cat["arango_name"],
-                        "rank": row_dict[cat["csv_rankname"]],
+                        "rank": int(row_dict[cat["csv_rankname"]]),
                     })
     
     # reify families
@@ -188,6 +189,22 @@ def go(db):
                 "_from": game_id,
                 "_to": family_id,
             })
+    
+    # write number of games in each category and family
+    db.aql.execute(
+        util.WRITE_GAMES_PER_NODE_QUERY,
+        bind_vars={
+            "@node_collection": categories_coll.name,
+            "@edge_collection": in_category_coll.name,
+        }
+    )
+    db.aql.execute(
+        util.WRITE_GAMES_PER_NODE_QUERY,
+        bind_vars={
+            "@node_collection": families_coll.name,
+            "@edge_collection": in_family_coll.name,
+        }
+    )
 
 if __name__=="__main__":
     go(util.open_db())

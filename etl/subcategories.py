@@ -1,6 +1,8 @@
 import util
 
 def go(db):
+    print("subcategories in progress")
+
     if db.has_collection('Subcategories'):
         db.delete_collection('Subcategories')
     subcategories_coll = db.create_collection('Subcategories')
@@ -12,7 +14,7 @@ def go(db):
     in_sub_category_coll = db.create_collection('InSubCategory', edge=True)
 
     with open("../data/subcategories.csv", "r", newline="") as f:
-        util.handle_adjacency_csv(f, games_coll, subcategories_coll, in_sub_category_coll)
+        util.handle_adjacency_csv(f, db, games_coll, subcategories_coll, in_sub_category_coll)
 
 if __name__=="__main__":
     go(util.open_db())

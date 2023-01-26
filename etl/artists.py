@@ -1,6 +1,8 @@
 import util
 
 def go(db):
+    print("artists in progress")
+
     if db.has_collection('Artists'):
         db.delete_collection('Artists')
     artists_coll = db.create_collection('Artists')
@@ -12,7 +14,7 @@ def go(db):
     has_artist_coll = db.create_collection('HasArtist', edge=True)
 
     with open("../data/artists_reduced.csv", "r", newline="") as f:
-        util.handle_adjacency_csv(f, games_coll, artists_coll, has_artist_coll)
+        util.handle_adjacency_csv(f, db, games_coll, artists_coll, has_artist_coll)
 
     # TODO La presenza del Low-Exp Artist potrebbe dar fastidio
 

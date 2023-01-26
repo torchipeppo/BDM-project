@@ -1,6 +1,8 @@
 import util
 
 def go(db):
+    print("themes in progress")
+
     if db.has_collection('Themes'):
         db.delete_collection('Themes')
     themes_coll = db.create_collection('Themes')
@@ -12,7 +14,7 @@ def go(db):
     has_theme_coll = db.create_collection('HasTheme', edge=True)
 
     with open("../data/themes.csv", "r", newline="") as f:
-        util.handle_adjacency_csv(f, games_coll, themes_coll, has_theme_coll)
+        util.handle_adjacency_csv(f, db, games_coll, themes_coll, has_theme_coll)
 
 if __name__=="__main__":
     go(util.open_db())

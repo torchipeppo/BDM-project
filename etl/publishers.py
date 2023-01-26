@@ -1,6 +1,8 @@
 import util
 
 def go(db):
+    print("publishers in progress")
+
     if db.has_collection('Publishers'):
         db.delete_collection('Publishers')
     publishers_coll = db.create_collection('Publishers')
@@ -12,7 +14,7 @@ def go(db):
     has_publisher_coll = db.create_collection('HasPublisher', edge=True)
 
     with open("../data/publishers_reduced.csv", "r", newline="") as f:
-        util.handle_adjacency_csv(f, games_coll, publishers_coll, has_publisher_coll)
+        util.handle_adjacency_csv(f, db, games_coll, publishers_coll, has_publisher_coll)
 
     # TODO La presenza del Low-Exp Publisher potrebbe dar fastidio
 
