@@ -119,10 +119,17 @@ def go(db):
             ## PLAYERS
 
             # turn min/max attributes into ranges
-            game_dict["players_mfg"] = {
-                "min": int(row_dict["MinPlayers"]),
-                "max": int(row_dict["MaxPlayers"]),
-            }
+            pm_min = int(row_dict["MinPlayers"])
+            pm_max = int(row_dict["MaxPlayers"])
+            if pm_min>0 or pm_max>0:
+                if pm_min==0:
+                    pm_min = None    # null < number in ArangoDB
+                if pm_max==0:
+                    pm_max = "any"   # string > number in ArangoDB
+                game_dict["players_mfg"] = {
+                    "min": pm_min,
+                    "max": pm_max,
+                }
             if int(row_dict["BestPlayers"]) > 0:
                 game_dict["players_com_best"] = int(row_dict["BestPlayers"])
             # want a list of ints here, and it turns out
@@ -145,14 +152,21 @@ def go(db):
                 game_dict["age_com"]        = float(row_dict["ComAgeRec"])
             if row_dict["LanguageEase"]:
                 game_dict["language_ease"]  = float(row_dict["LanguageEase"])
-            
+
             ## PLAY TIME
-            
-            game_dict["playtime_mfg"] = int(row_dict["MfgPlaytime"])
-            game_dict["playtime_com"] = {
-                "min": int(row_dict["ComMinPlaytime"]),
-                "max": int(row_dict["ComMaxPlaytime"]),
-            }
+
+            if int(row_dict["MfgPlaytime"]) > 0:
+                game_dict["playtime_mfg"] = int(row_dict["MfgPlaytime"])
+            pc_min = int(row_dict["ComMinPlaytime"])
+            pc_max = int(row_dict["ComMaxPlaytime"])
+            if pc_min>0 or pc_max>0:
+                # normalize interval
+                if pc_max == 0:
+                    pc_max = pc_min
+                game_dict["playtime_com"] = {
+                    "min": pc_min,
+                    "max": pc_max,
+                }
 
             ## COMMUNITY AND MISC
 

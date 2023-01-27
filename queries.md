@@ -180,8 +180,10 @@ FOR start IN Games
     FOR end, _e, path IN 2..2 ANY start HasDesigner, HasMechanic, HasTheme, InCategory, InFamily
     FILTER end.rating_avg > @rating_threshold
     FILTER ABS(end.weight - start.weight) < @weight_threshold
-    FILTER (start.playtime_com.min-@time_margin <= end.playtime_com.min-@time_margin AND end.playtime_com.min-@time_margin <= start.playtime_com.max+@time_margin) OR
-           (end.playtime_com.min-@time_margin <= start.playtime_com.min-@time_margin AND start.playtime_com.min-@time_margin <= end.playtime_com.max+@time_margin)
+    LET start_playtime = HAS(start, "playtime_com") ? start.playtime_com : {min:start.playtime_mfg, max:start.playtime_mfg}
+    LET end_playtime = HAS(end, "playtime_com") ? end.playtime_com : {min:end.playtime_mfg, max:end.playtime_mfg}
+    FILTER (start_playtime.min-@time_margin <= end_playtime.min-@time_margin AND end_playtime.min-@time_margin <= start_playtime.max+@time_margin) OR
+           (end_playtime.min-@time_margin <= start_playtime.min-@time_margin AND start_playtime.min-@time_margin <= end_playtime.max+@time_margin)
     FILTER HAS(start, "players_com_good") AND HAS(end, "players_com_good")
            ?
            COUNT(INTERSECTION(start.players_com_good, end.players_com_good)) > 0 OR "More" IN start.players_com_good OR "More" IN end.players_com_good
@@ -308,7 +310,7 @@ FOR c IN Categories
         players:i,
         //--                          v--Compute the fraction of games for each player no. wrt the total---v
         percent_of_games: ROUND(10000*COUNT(FLATTEN(players_lists)[* FILTER CURRENT==i])/cat.number_of_games)/100,
-        //--              ^---------^      Convert it to percentage with a limited  quantity of digits       ^--^
+        //--              ^---------^       Convert it to percentage with a limited quantity of digits       ^--^
     }
     //-- Perpare readable version
     LET players_stats_readable = players_stats[* RETURN CONCAT(CURRENT.players, " players: ", CURRENT.percent_of_games, " % ")]
@@ -319,12 +321,51 @@ FOR c IN Categories
 Ad esempio @players_limit <- 12
 
 
-# TODO
+## Giochi popolari ispirati a film, TV o videogiochi
+*(Tecnica: regex)*
 
-* Tecnica: SHORTEST_PATH, K_SHORTEST_PATHS
-* Giochi con minimo rapporto num_user_ratings/num_owned, restutuire anche il rating per vedere se c'è una prevalenza di rating buoni o brutti per questi giochi.
-* modifica: peso medio per tempo di gioco anziché per età?
-* Tecnica: regex?
+```sql
+FOR g IN Games
+    FILTER g.num_user_ratings > @num_ratings_threshold
+    FOR t IN 1..1 OUTBOUND g HasTheme
+    FILTER LOWER(t.name) =~ "tv|television|film|movie|cinema|video ?game"
+    SORT g.rating_avg DESC
+    RETURN {g:g.name, r:g.rating_avg, rn:g.num_user_ratings, t:t.name}
+```
+Ad esempio @num_ratings_threshold <- 5000
+
+
+## Giochi brutti che hanno in molti
+*(Dominio)*
+
+```sql
+FOR g IN Games
+    FILTER g.num_owned > 1000 AND g.rating_avg < 4
+    RETURN {name:g.name, owned:g.num_owned, rating:g.rating_avg}
+```
+
+
+## Peso medio per durata di gioco
+*(Variante di una query precedente, ha più senso)*
+
+```sql
+for g in Games
+    FILTER g.playtime_mfg != null AND g.weight != null
+    COLLECT min_playtime = FLOOR(g.playtime_mfg / @time_range_width) * @time_range_width
+    AGGREGATE min_weight = MIN(g.weight),
+              max_weight = MAX(g.weight),
+              avg_weight = AVG(g.weight),
+              num_games = COUNT(g.weight)
+    LET max_playtime = min_playtime + @time_range_width - 1
+    RETURN {
+        //-- Display hours for readability, some games can be pretty long
+        playtime_range:{min:min_playtime/60, max:(max_playtime+1)/60},
+        num_games,
+        avg_weight,
+        weight_range:{min:min_weight, max:max_weight}
+    }
+```
+
 
 ## Scrivi in ogni categoria il numero di giochi che vi appartengono
 *(Query di scrittura. Viene già eseguita dallo script Python per molti tipi di nodi.)*
