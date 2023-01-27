@@ -83,7 +83,7 @@ Ad esempio, @age_range_width <- 5
 FOR d IN Designers
     FILTER d.name !~ "Low-Exp"
     LET good_games = (
-        FOR g IN 1..1 INBOUND d HasDesigner
+        FOR g IN 1..1 INBOUND d ByDesigner
         FILTER g.rating_avg > @rating_threshold
         RETURN {name:g.name, rating:g.rating_avg}
     )
@@ -122,13 +122,13 @@ FOR g IN Games
 Ad esempio @num_ratings_threshold <- 5000
 
 
-## Per ogni artista, il suo tema preferito
+## Per ogni artista, i suoi temi preferiti
 *(Tecnica: percorsi su grafo (len 2), `array[*]`, `ALL <=`, COLLECT, AGGREGATE, subquery)*
 
 ```sql
 FOR a IN Artists
     LET his_themes = (
-        FOR g IN 1..1 INBOUND a HasArtist
+        FOR g IN 1..1 INBOUND a ByArtist
         FOR t IN 1..1 OUTBOUND g HasTheme
         COLLECT theme = t.name WITH COUNT INTO num
         RETURN {theme, num}
@@ -185,7 +185,7 @@ FOR g IN Games
 
 ```sql
 FOR p IN Publishers
-    FOR g IN 1..1 INBOUND p HasPublisher
+    FOR g IN 1..1 INBOUND p ByPublisher
     FILTER g.is_kickstarted
     COLLECT publisher = p WITH COUNT INTO kicked_games
     LET kicked_perc = kicked_games/publisher.number_of_games
@@ -230,14 +230,14 @@ FOR g1 IN Games
     FILTER LOWER(g1.name) == LOWER(@name1)
     FOR g2 IN Games
     FILTER LOWER(g2.name) == LOWER(@name2)
-    FOR path IN 2..2 ANY K_PATHS g1._id TO g2._id InCategory, InSubCategory, InFamily, HasArtist, HasDesigner, HasPublisher, HasMechanic, HasTheme
+    FOR path IN 2..2 ANY K_PATHS g1._id TO g2._id InCategory, InSubCategory, InFamily, ByArtist, ByDesigner, ByPublisher, HasMechanic, HasTheme
     //-- graph is bipartite (games, everything_else)
     //-- so this path is always [game, designer_mechanic_whatever, game].
     LET common_element = path.vertices[1].name
     LET connection_type = PARSE_IDENTIFIER(path.edges[0]._id).collection
     RETURN {common_element, connection_type}
 ```
-Ad esempio, @game1 <- "Pandemic: Fall of Rome" e @game2 <- "Vast: The Crystal Caverns"
+Ad esempio, @name1 <- "Pandemic: Fall of Rome" e @name2 <- "Vast: The Crystal Caverns"
 
 
 ## 6 Gradi di Rodger MacGowan
@@ -250,7 +250,7 @@ FOR a IN Artists
     LET dos_result = (
         FOR bacon IN Artists
         FILTER bacon.name == @bacon
-        FOR v, e IN ANY SHORTEST_PATH a TO bacon HasArtist
+        FOR v, e IN ANY SHORTEST_PATH a TO bacon ByArtist
         COLLECT start=a.name INTO path={name:v.name, is_game:IS_SAME_COLLECTION("Games", v)}
         LET degrees_of_separation = COUNT(path[* FILTER CURRENT.is_game])
         SORT degrees_of_separation DESC
@@ -279,7 +279,7 @@ Ad esempio, @bacon <- "Rodger B. MacGowan"
 FOR start IN Games
     FILTER LOWER(start.name) == LOWER(@game_name)
     
-    FOR end, _e, path IN 2..2 ANY start HasDesigner, HasMechanic, HasTheme, InCategory, InFamily
+    FOR end, _e, path IN 2..2 ANY start ByDesigner, HasMechanic, HasTheme, InCategory, InFamily
     FILTER end.rating_avg > @rating_threshold
     FILTER ABS(end.weight - start.weight) < @weight_threshold
     LET start_playtime = HAS(start, "playtime_com") ? start.playtime_com : {min:start.playtime_mfg, max:start.playtime_mfg}
