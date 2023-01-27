@@ -10,6 +10,16 @@ FOR f IN Families
 Ad esempio, @family <- "Pandemic?" o "Mysterium?"
 
 
+## Giochi brutti che hanno in molti
+*(Dominio, query semplice)*
+
+```sql
+FOR g IN Games
+    FILTER g.num_owned > 1000 AND g.rating_avg < 4
+    RETURN {name:g.name, owned:g.num_owned, rating:g.rating_avg}
+```
+
+
 ## Giochi per cui la community ha suggerito un'età minima inferiore a quella proposta dagli autori
 *(Tecnica: attributi mancanti, comportamento del null)*
 
@@ -22,8 +32,30 @@ FOR g IN Games
 Mostra che in ArangoDB, null è confrontabile ed è minore di qulsiasi numero, quindi va trattato esplicitamente decommentando la seconda riga.
 
 
-## Peso medio per età minima
+## Peso medio per durata di gioco
 *(Tecnica: COLLECT, AGGREGATE (per range))*
+
+```sql
+for g in Games
+    FILTER g.playtime_mfg != null AND g.weight != null
+    COLLECT min_playtime = FLOOR(g.playtime_mfg / @time_range_width) * @time_range_width
+    AGGREGATE min_weight = MIN(g.weight),
+              max_weight = MAX(g.weight),
+              avg_weight = AVG(g.weight),
+              num_games = COUNT(g.weight)
+    LET max_playtime = min_playtime + @time_range_width - 1
+    RETURN {
+        //-- Display hours for readability, some games can be pretty long
+        playtime_range:{min:min_playtime/60, max:(max_playtime+1)/60},
+        num_games,
+        avg_weight,
+        weight_range:{min:min_weight, max:max_weight}
+    }
+```
+
+
+### Peso medio per età minima
+*(Variante della precedente)*
 
 ```sql
 for g in Games
@@ -76,6 +108,20 @@ FOR c IN Categories
 Ad esempio, @topX <- 3
 
 
+## Giochi popolari ispirati a film, TV o videogiochi
+*(Tecnica: regex)*
+
+```sql
+FOR g IN Games
+    FILTER g.num_user_ratings > @num_ratings_threshold
+    FOR t IN 1..1 OUTBOUND g HasTheme
+    FILTER LOWER(t.name) =~ "tv|television|film|movie|cinema|video ?game"
+    SORT g.rating_avg DESC
+    RETURN {g:g.name, r:g.rating_avg, rn:g.num_user_ratings, t:t.name}
+```
+Ad esempio @num_ratings_threshold <- 5000
+
+
 ## Per ogni artista, il suo tema preferito
 *(Tecnica: percorsi su grafo (len 2), `array[*]`, `ALL <=`, COLLECT, AGGREGATE, subquery)*
 
@@ -118,6 +164,62 @@ FOR g IN Games
 Si scopre che: Cards (category) => Card Game (subcategory) all'80% ma non viceversa,
 e che Cards (category) => Collectible Components al 75% e viceversa al 66%.
 Non ci sono altre sovrapposizioni degne di nota.
+
+
+## Andamento (percentuale) kickstarter anno per anno
+*(Dominio, andamento temporale)*
+
+```sql
+FOR g IN Games
+    FILTER g.year >= @first_year  //-- Note: kickstarter launched in 2009
+    COLLECT year = g.year INTO games_this_year = g
+    LET games_tot = COUNT(games_this_year)
+    LET games_kicked = COUNT(games_this_year[* FILTER CURRENT.is_kickstarted])
+    RETURN {year, games_tot, kickstarter_perc: 100 * games_kicked / games_tot}
+```
+@first_year <- 2009
+
+
+## Editori che hanno fatto più kickstarter
+*(Dominio)*
+
+```sql
+FOR p IN Publishers
+    FOR g IN 1..1 INBOUND p HasPublisher
+    FILTER g.is_kickstarted
+    COLLECT publisher = p WITH COUNT INTO kicked_games
+    LET kicked_perc = kicked_games/publisher.number_of_games
+    SORT @perc_sort ? kicked_perc : kicked_games DESC  //-- Try both modes!
+    RETURN {publisher:publisher.name, kicked_games, kicked_perc}
+```
+@perc_sort <- true oppure false
+
+
+## Distribuzione dei giochi per no. di giocatori per categoria
+*(Dominio)*
+
+```sql
+FOR c IN Categories
+    FOR g IN 1..1 INBOUND c InCategory
+    //-- Construct an array that contains all integers in the range g.players_mfg (but not more than players_limit)
+    LET players_array = (1..@players_limit)[* FILTER g.players_mfg.min <= CURRENT AND CURRENT <= g.players_mfg.max]
+    //-- Collect so we get data from all games of each category together
+    COLLECT cat = c INTO players_lists = players_array
+    //-- Now basically count all occurrences of each number, so we get no. of games per player number
+    FOR i IN 1..@players_limit
+    COLLECT category = cat INTO players_stats = {
+        players:i,
+        //--                          v--Compute the fraction of games for each player no. wrt the total---v
+        percent_of_games: ROUND(10000*COUNT(FLATTEN(players_lists)[* FILTER CURRENT==i])/cat.number_of_games)/100,
+        //--              ^---------^       Convert it to percentage with a limited quantity of digits       ^--^
+    }
+    //-- Perpare readable version
+    LET players_stats_readable = players_stats[* RETURN CONCAT(CURRENT.players, " players: ", CURRENT.percent_of_games, " % ")]
+    //-- Done! Select one version
+    //-- RETURN {category:category.name, number_of_games:category.number_of_games, players_stats}   //-- technical
+    RETURN {category:category.name, number_of_games:category.number_of_games, players_stats_readable}   //-- readable
+```
+Ad esempio @players_limit <- 12
 
 
 ## Nodi in comune a due giochi dati
@@ -262,108 +364,6 @@ Esempio parametri (in JSON perché sono tanti):
 	"limit_categories": 2,
 	"limit_families": 2
 }
-```
-
-
-## Andamento (percentuale) kickstarter anno per anno
-*(Dominio, andamento temporale)*
-
-```sql
-FOR g IN Games
-    FILTER g.year >= @first_year  //-- Note: kickstarter launched in 2009
-    COLLECT year = g.year INTO games_this_year = g
-    LET games_tot = COUNT(games_this_year)
-    LET games_kicked = COUNT(games_this_year[* FILTER CURRENT.is_kickstarted])
-    RETURN {year, games_tot, kickstarter_perc: 100 * games_kicked / games_tot}
-```
-@first_year <- 2009
-
-
-## Editori che hanno fatto più kickstarter
-*(Dominio)*
-
-```sql
-FOR p IN Publishers
-    FOR g IN 1..1 INBOUND p HasPublisher
-    FILTER g.is_kickstarted
-    COLLECT publisher = p WITH COUNT INTO kicked_games
-    LET kicked_perc = kicked_games/publisher.number_of_games
-    SORT @perc_sort ? kicked_perc : kicked_games DESC  //-- Try both modes!
-    RETURN {publisher:publisher.name, kicked_games, kicked_perc}
-```
-@perc_sort <- true oppure false
-
-
-## Distribuzione dei giochi per no. di giocatori per categoria
-*(Dominio)*
-
-```sql
-FOR c IN Categories
-    FOR g IN 1..1 INBOUND c InCategory
-    //-- Construct an array that contains all integers in the range g.players_mfg (but not more than players_limit)
-    LET players_array = (1..@players_limit)[* FILTER g.players_mfg.min <= CURRENT AND CURRENT <= g.players_mfg.max]
-    //-- Collect so we get data from all games of each category together
-    COLLECT cat = c INTO players_lists = players_array
-    //-- Now basically count all occurrences of each number, so we get no. of games per player number
-    FOR i IN 1..@players_limit
-    COLLECT category = cat INTO players_stats = {
-        players:i,
-        //--                          v--Compute the fraction of games for each player no. wrt the total---v
-        percent_of_games: ROUND(10000*COUNT(FLATTEN(players_lists)[* FILTER CURRENT==i])/cat.number_of_games)/100,
-        //--              ^---------^       Convert it to percentage with a limited quantity of digits       ^--^
-    }
-    //-- Perpare readable version
-    LET players_stats_readable = players_stats[* RETURN CONCAT(CURRENT.players, " players: ", CURRENT.percent_of_games, " % ")]
-    //-- Done! Select one version
-    //-- RETURN {category:category.name, number_of_games:category.number_of_games, players_stats}   //-- technical
-    RETURN {category:category.name, number_of_games:category.number_of_games, players_stats_readable}   //-- readable
-```
-Ad esempio @players_limit <- 12
-
-
-## Giochi popolari ispirati a film, TV o videogiochi
-*(Tecnica: regex)*
-
-```sql
-FOR g IN Games
-    FILTER g.num_user_ratings > @num_ratings_threshold
-    FOR t IN 1..1 OUTBOUND g HasTheme
-    FILTER LOWER(t.name) =~ "tv|television|film|movie|cinema|video ?game"
-    SORT g.rating_avg DESC
-    RETURN {g:g.name, r:g.rating_avg, rn:g.num_user_ratings, t:t.name}
-```
-Ad esempio @num_ratings_threshold <- 5000
-
-
-## Giochi brutti che hanno in molti
-*(Dominio)*
-
-```sql
-FOR g IN Games
-    FILTER g.num_owned > 1000 AND g.rating_avg < 4
-    RETURN {name:g.name, owned:g.num_owned, rating:g.rating_avg}
-```
-
-
-## Peso medio per durata di gioco
-*(Variante di una query precedente, ha più senso)*
-
-```sql
-for g in Games
-    FILTER g.playtime_mfg != null AND g.weight != null
-    COLLECT min_playtime = FLOOR(g.playtime_mfg / @time_range_width) * @time_range_width
-    AGGREGATE min_weight = MIN(g.weight),
-              max_weight = MAX(g.weight),
-              avg_weight = AVG(g.weight),
-              num_games = COUNT(g.weight)
-    LET max_playtime = min_playtime + @time_range_width - 1
-    RETURN {
-        //-- Display hours for readability, some games can be pretty long
-        playtime_range:{min:min_playtime/60, max:(max_playtime+1)/60},
-        num_games,
-        avg_weight,
-        weight_range:{min:min_weight, max:max_weight}
-    }
 ```
 
 
