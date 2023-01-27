@@ -105,7 +105,8 @@ def go(db):
             game_dict["name"]         = row_dict["Name"]
             # desc is too tokenized to be useful
             # game_dict["description"]  = row_dict["Description"]
-            game_dict["year"]         = int(row_dict["YearPublished"])
+            if row_dict["YearPublished"] != 0:
+                game_dict["year"]         = int(row_dict["YearPublished"])
             if float(row_dict["GameWeight"]) > 0:
                 game_dict["weight"]       = float(row_dict["GameWeight"])
             game_dict["rating_avg"]          = float(row_dict["AvgRating"])
