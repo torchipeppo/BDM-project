@@ -100,6 +100,8 @@ def go(db):
             # and all fields here are unquoted.
             game_dict = dict()
 
+            ## BASIC STUFF
+
             # define the primary key (replaces BDDId too.)
             game_dict["_key"]         = util.get_game_key_from_id(row_dict["BGGId"])
             game_dict["name"]         = row_dict["Name"]
@@ -112,15 +114,15 @@ def go(db):
             game_dict["rating_avg"]          = float(row_dict["AvgRating"])
             game_dict["rating_bayes_avg"]    = float(row_dict["BayesAvgRating"])
             game_dict["rating_bayes_stddev"] = float(row_dict["StdDev"])
+            game_dict["rank"] = int(row_dict["Rank:boardgame"])
+
+            ## PLAYERS
+
             # turn min/max attributes into ranges
             game_dict["players_mfg"] = {
                 "min": int(row_dict["MinPlayers"]),
                 "max": int(row_dict["MaxPlayers"]),
             }
-            if row_dict["ComAgeRec"]:
-                game_dict["age_com"]        = float(row_dict["ComAgeRec"])
-            if row_dict["LanguageEase"]:
-                game_dict["language_ease"]  = float(row_dict["LanguageEase"])
             if int(row_dict["BestPlayers"]) > 0:
                 game_dict["players_com_best"] = int(row_dict["BestPlayers"])
             # want a list of ints here, and it turns out
@@ -134,17 +136,30 @@ def go(db):
             good_players_list = json.loads(good_players_str)
             if len(good_players_list) > 0:
                 game_dict["players_com_good"] = good_players_list
-            game_dict["num_owned"]         = int(row_dict["NumOwned"])
-            game_dict["num_want"]          = int(row_dict["NumWant"])
-            game_dict["num_wish"]          = int(row_dict["NumWish"])
-            game_dict["num_weight_votes"]  = int(row_dict["NumWeightVotes"])
+
+            ## AGE AND LANGUAGE
+
+            if int(row_dict["MfgAgeRec"]) > 0:
+                game_dict["age_mfg"] = int(row_dict["MfgAgeRec"])
+            if row_dict["ComAgeRec"]:
+                game_dict["age_com"]        = float(row_dict["ComAgeRec"])
+            if row_dict["LanguageEase"]:
+                game_dict["language_ease"]  = float(row_dict["LanguageEase"])
+            
+            ## PLAY TIME
+            
             game_dict["playtime_mfg"] = int(row_dict["MfgPlaytime"])
             game_dict["playtime_com"] = {
                 "min": int(row_dict["ComMinPlaytime"]),
                 "max": int(row_dict["ComMaxPlaytime"]),
             }
-            if int(row_dict["MfgAgeRec"]) > 0:
-                game_dict["age_mfg"] = int(row_dict["MfgAgeRec"])
+
+            ## COMMUNITY AND MISC
+
+            game_dict["num_owned"]         = int(row_dict["NumOwned"])
+            game_dict["num_want"]          = int(row_dict["NumWant"])
+            game_dict["num_wish"]          = int(row_dict["NumWish"])
+            game_dict["num_weight_votes"]  = int(row_dict["NumWeightVotes"])
             game_dict["num_user_ratings"] = int(row_dict["NumUserRatings"])
             game_dict["num_comments"] = int(row_dict["NumComments"])
             game_dict["num_alternates"] = int(row_dict["NumAlternates"])
@@ -153,7 +168,8 @@ def go(db):
             # "0" is truthy, thus the double cast
             game_dict["is_reimplementation"] = bool(int(row_dict["IsReimplementation"]))
             game_dict["is_kickstarted"] = bool(int(row_dict["Kickstarted"]))
-            game_dict["rank"] = int(row_dict["Rank:boardgame"])
+
+            ## INSERT AND CONTINUE ON
 
             # add game to DB, keep id for later
             metadata = games_coll.insert(game_dict)
