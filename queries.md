@@ -123,7 +123,7 @@ Ad esempio @num_ratings_threshold <- 5000
 
 
 ## Per ogni artista, i suoi temi preferiti
-*(Tecnica: percorsi su grafo (len 2), `array[*]`, `ALL <=`, COLLECT, AGGREGATE, subquery)*
+*(Tecnica: percorsi su grafo (len 2), `array[*]`, `ALL <=`, COLLECT WITH COUNT, subquery)*
 
 ```sql
 FOR a IN Artists
